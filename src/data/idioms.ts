@@ -1,0 +1,410 @@
+import { IdiomItem } from '../types';
+
+export const IDIOM_DATABASE: IdiomItem[] = [
+  {
+    id: 'bite-the-bullet',
+    idiom: 'bite the bullet',
+    meaning: '어려운 상황을 꾹 참고 견디다 (울며 겨자 먹기로 하다)',
+    literalMeaning: '총알을 깨물다',
+    nuanceTip: '과거 마취제 없이 수술할 때 고통을 참으려 군인에게 납 총알을 물린 데서 유래된 표현입니다.',
+    exampleEn: "I hate dentists, but I'll just have to bite the bullet and go.",
+    exampleKo: '치과는 정말 싫지만, 꾹 참고 가야만 해.',
+    category: 'daily',
+    words: ['bite', 'the', 'bullet'],
+    distractors: ['sword', 'apple', 'taste', 'swallow']
+  },
+  {
+    id: 'break-a-leg',
+    idiom: 'break a leg',
+    meaning: '행운을 빌어! (공연이나 시험 전 응원)',
+    literalMeaning: '다리를 부러뜨려라',
+    nuanceTip: '연극 무대에서 직접 "행운"을 빌면 반대로 불운이 온다는 미신 때문에 "다리나 부러져라!"라고 반대로 응원하던 전통입니다.',
+    exampleEn: 'You have a presentation today? Break a leg!',
+    exampleKo: '오늘 발표 있지? 대박 나라, 행운을 빌어!',
+    category: 'daily',
+    words: ['break', 'a', 'leg'],
+    distractors: ['arm', 'run', 'wish', 'luck']
+  },
+  {
+    id: 'under-the-weather',
+    idiom: 'under the weather',
+    meaning: '몸 상태가 찌뿌둥하거나 감기 기운이 있다',
+    literalMeaning: '날씨 아래에 있다',
+    nuanceTip: '뱃멀미로 몸이 안 좋아진 선원들이 악천후를 피해 갑판 아래로 내려가 쉬던 데서 유래했습니다.',
+    exampleEn: "I'm feeling a bit under the weather, so I'll stay home today.",
+    exampleKo: '오늘 몸이 좀 찌뿌둥해서 집에서 쉬려고 해.',
+    category: 'daily',
+    words: ['under', 'the', 'weather'],
+    distractors: ['cloud', 'rain', 'storm', 'over']
+  },
+  {
+    id: 'spill-the-beans',
+    idiom: 'spill the beans',
+    meaning: '비밀을 무심코 누설하다 (털어놓다)',
+    literalMeaning: '콩을 쏟다',
+    nuanceTip: '고대 그리스 비밀 투표에서 흰 콩과 검은 콩을 항아리에 넣었는데, 콩이 쏟아지면 결과가 미리 들통났던 데서 유래했습니다.',
+    exampleEn: 'Please don’t spill the beans about the surprise birthday party!',
+    exampleKo: '깜짝 생일 파티 비밀 절대 불지 마!',
+    category: 'social',
+    words: ['spill', 'the', 'beans'],
+    distractors: ['coffee', 'soup', 'secret', 'drop']
+  },
+  {
+    id: 'hit-the-sack',
+    idiom: 'hit the sack',
+    meaning: '잠자리에 들다 (자러 가다)',
+    literalMeaning: '자루를 치다',
+    nuanceTip: '과거 건초를 채워 넣은 거친 자루(sack)를 매트리스로 쓰던 시절, 잠자기 전 털어 눕던 데서 유래했습니다.',
+    exampleEn: "It’s already midnight, I’m going to hit the sack.",
+    exampleKo: '벌써 자정이네, 나 이제 자러 갈게.',
+    category: 'daily',
+    words: ['hit', 'the', 'sack'],
+    distractors: ['bed', 'sleep', 'pillow', 'couch']
+  },
+  {
+    id: 'call-it-a-day',
+    idiom: 'call it a day',
+    meaning: '오늘 하루 일과를 마치다 (퇴근/마무리하다)',
+    literalMeaning: '하루라고 부르다',
+    nuanceTip: '근무 시간이나 작업을 "오늘 분량은 여기까지!"라고 선언하고 끝맺을 때 원어민 직장인들이 가장 많이 쓰는 표현입니다.',
+    exampleEn: "We’ve finished the slides, let's call it a day.",
+    exampleKo: '슬라이드 다 만들었으니 오늘 작업은 여기까지 합시다.',
+    category: 'business',
+    words: ['call', 'it', 'a', 'day'],
+    distractors: ['night', 'finish', 'work', 'time']
+  },
+  {
+    id: 'touch-base',
+    idiom: 'touch base',
+    meaning: '(상황 확인차) 간단히 연락하다 / 체크하다',
+    literalMeaning: '베이스를 터치하다',
+    nuanceTip: '야구 주자가 베이스를 밟아 안전을 확인하듯, 비즈니스에서 가볍게 진행상황을 점검하고 공유할 때 씁니다.',
+    exampleEn: "Let's touch base next Monday before the client meeting.",
+    exampleKo: '고객사 미팅 전 다음 주 월요일에 가볍게 현황 체크해요.',
+    category: 'business',
+    words: ['touch', 'base'],
+    distractors: ['ground', 'hands', 'call', 'check']
+  },
+  {
+    id: 'cut-corners',
+    idiom: 'cut corners',
+    meaning: '원칙이나 절차를 생략하고 대충하다 (비용/시간 절감)',
+    literalMeaning: '모퉁이를 가로지르다',
+    nuanceTip: '길 모퉁이를 정석대로 돌지 않고 질러가듯, 품질을 희생하며 편법으로 일을 빨리 해치우는 뉘앙스입니다.',
+    exampleEn: "Don't cut corners on safety tests, it's dangerous.",
+    exampleKo: '안전 점검에서 비용 아끼려고 대충 넘어가면 안 돼요.',
+    category: 'business',
+    words: ['cut', 'corners'],
+    distractors: ['costs', 'edges', 'skip', 'lines']
+  },
+  {
+    id: 'see-eye-to-eye',
+    idiom: 'see eye to eye',
+    meaning: '의견이 완전히 일치하다',
+    literalMeaning: '눈과 눈을 마주보다',
+    nuanceTip: '서로 같은 시선과 높이에서 바라본다는 뜻으로, 회의나 대화에서 합의에 도달했을 때 사용합니다.',
+    exampleEn: "My boss and I don’t always see eye to eye on deadlines.",
+    exampleKo: '나와 상사는 마감일에 대해 늘 의견이 일치하는 건 아니다.',
+    category: 'social',
+    words: ['see', 'eye', 'to', 'eye'],
+    distractors: ['face', 'hand', 'agree', 'mind']
+  },
+  {
+    id: 'on-the-fence',
+    idiom: 'on the fence',
+    meaning: '어느 쪽을 택할지 망설이다 (중립인 상태)',
+    literalMeaning: '울타리 위에 앉아있다',
+    nuanceTip: '울타리 위에서 이쪽 마당으로 내려갈지 저쪽으로 내려갈지 결정을 못 내리는 모양새입니다.',
+    exampleEn: "I'm still on the fence about accepting the new job offer.",
+    exampleKo: '새로운 이직 제안을 수락할지 아직 결정을 못 내리고 있어.',
+    category: 'social',
+    words: ['on', 'the', 'fence'],
+    distractors: ['edge', 'wall', 'bridge', 'line']
+  },
+  {
+    id: 'burn-the-midnight-oil',
+    idiom: 'burn the midnight oil',
+    meaning: '밤늦게까지 야근이나 공부를 하다',
+    literalMeaning: '자정의 기름을 태우다',
+    nuanceTip: '전기가 없던 시절 밤늦게 등잔 기름을 태우며 일하거나 책을 읽던 데서 유래한 표현입니다.',
+    exampleEn: 'She burned the midnight oil to prepare for the bar exam.',
+    exampleKo: '그녀는 변호사 시험을 준비하느라 밤을 새워 공부했다.',
+    category: 'business',
+    words: ['burn', 'the', 'midnight', 'oil'],
+    distractors: ['candle', 'night', 'fire', 'lamp']
+  },
+  {
+    id: 'piece-of-cake',
+    idiom: 'piece of cake',
+    meaning: '식은 죽 먹기 (아주 쉬운 일)',
+    literalMeaning: '케이크 한 조각',
+    nuanceTip: '케이크 한 조각을 맛있게 먹어치우는 것처럼 쉽고 부담 없다는 뜻입니다.',
+    exampleEn: 'Don’t worry about the interview, it will be a piece of cake!',
+    exampleKo: '면접 걱정하지 마, 식은 죽 먹기일 거야!',
+    category: 'daily',
+    words: ['piece', 'of', 'cake'],
+    distractors: ['bread', 'bite', 'pie', 'sweet']
+  },
+  {
+    id: 'blow-off-steam',
+    idiom: 'blow off steam',
+    meaning: '쌓인 스트레스를 풀다',
+    literalMeaning: '증기를 뿜어내다',
+    nuanceTip: '증기기관 엔진이 폭발하지 않도록 과도한 증기압을 밸브로 빼내듯 가슴 속 답답함을 해소한다는 뜻입니다.',
+    exampleEn: 'I usually go for a run after work to blow off steam.',
+    exampleKo: '난 보통 퇴근 후 스트레스를 풀려고 러닝을 뛰어.',
+    category: 'social',
+    words: ['blow', 'off', 'steam'],
+    distractors: ['smoke', 'fire', 'stress', 'heat']
+  },
+  {
+    id: 'get-the-ball-rolling',
+    idiom: 'get the ball rolling',
+    meaning: '프로젝트나 일을 착수하다 (시작하다)',
+    literalMeaning: '공을 굴리기 시작하다',
+    nuanceTip: '정지해 있는 무거운 공도 일단 굴리기 시작하면 가속도가 붙듯, 어떤 일의 첫걸음을 뗄 때 씁니다.',
+    exampleEn: "Let's schedule a kickoff meeting to get the ball rolling.",
+    exampleKo: '일을 본격적으로 시작하기 위해 킥오프 회의 일정을 잡읍시다.',
+    category: 'business',
+    words: ['get', 'the', 'ball', 'rolling'],
+    distractors: ['wheel', 'start', 'train', 'moving']
+  },
+  {
+    id: 'back-to-square-one',
+    idiom: 'back to square one',
+    meaning: '원점으로 돌아가다 (처음부터 다시 시작)',
+    literalMeaning: '1번 칸으로 되돌아가다',
+    nuanceTip: '보드게임에서 벌칙으로 맨 첫 번째 칸(square one)으로 말을 후퇴시키던 규칙에서 유래했습니다.',
+    exampleEn: 'The client rejected the proposal, so we are back to square one.',
+    exampleKo: '고객사가 제안을 반려해서 원점으로 돌아가 다시 시작해야 해.',
+    category: 'business',
+    words: ['back', 'to', 'square', 'one'],
+    distractors: ['start', 'zero', 'first', 'base']
+  },
+  {
+    id: 'once-in-a-blue-moon',
+    idiom: 'once in a blue moon',
+    meaning: '극히 드물게 (가뭄에 콩 나듯)',
+    literalMeaning: '푸른 달이 뜰 때 한 번',
+    nuanceTip: '한 달에 보름달이 두 번 뜰 때 두 번째 달을 블루문이라 부르며, 몇 년에 한 번 일어나는 매우 드문 현상에서 유래했습니다.',
+    exampleEn: 'I only eat fast food once in a blue moon.',
+    exampleKo: '난 아주 가끔, 가뭄에 콩 나듯 패스트푸드를 먹어.',
+    category: 'daily',
+    words: ['once', 'in', 'a', 'blue', 'moon'],
+    distractors: ['red', 'sun', 'sky', 'night']
+  },
+  {
+    id: 'burn-bridges',
+    idiom: 'burn bridges',
+    meaning: '관계를 완전히 끊다 (되돌아갈 길을 없애다)',
+    literalMeaning: '다리를 불태우다',
+    nuanceTip: '전쟁터에서 강을 건넌 뒤 퇴각할 다리를 불태워 배수진을 치듯, 인간관계나 직장에서 다시 돌아올 여지를 없애버릴 때 씁니다.',
+    exampleEn: 'Never burn bridges when you leave a company.',
+    exampleKo: '회사를 그만둘 때 절대로 인간관계를 척지거나 끊지 마세요.',
+    category: 'business',
+    words: ['burn', 'bridges'],
+    distractors: ['build', 'cross', 'break', 'roads']
+  },
+  {
+    id: 'cost-an-arm-and-a-leg',
+    idiom: 'cost an arm and a leg',
+    meaning: '엄청나게 비싸다 (등골이 휠 정도로 비쌈)',
+    literalMeaning: '팔 하나와 다리 하나 값을 치르다',
+    nuanceTip: '자신의 팔과 다리를 내놓아야 할 만큼 막대한 희생과 대가를 치러야 한다는 과장된 일상 표현입니다.',
+    exampleEn: 'That new smartphone costs an arm and a leg!',
+    exampleKo: '저 최신 스마트폰은 값이 정말 어마어마하게 비싸!',
+    category: 'daily',
+    words: ['cost', 'an', 'arm', 'and', 'a', 'leg'],
+    distractors: ['head', 'foot', 'eye', 'hand']
+  },
+  {
+    id: 'cut-to-the-chase',
+    idiom: 'cut to the chase',
+    meaning: '본론으로 바로 들어가다 (서론 생략)',
+    literalMeaning: '추격 장면으로 편집해 넘어가다',
+    nuanceTip: '초기 영화계에서 지루한 대화 장면을 잘라내고 관객이 열광하는 긴박한 자동차 추격(chase) 씬으로 바로 넘기던 데서 유래했습니다.',
+    exampleEn: "We don't have much time, so let's cut to the chase.",
+    exampleKo: '시간이 별로 없으니 서론은 빼고 바로 본론으로 들어갑시다.',
+    category: 'business',
+    words: ['cut', 'to', 'the', 'chase'],
+    distractors: ['jump', 'point', 'race', 'run']
+  },
+  {
+    id: 'break-the-ice',
+    idiom: 'break the ice',
+    meaning: '어색한 첫 만남의 분위기를 깨다 (서먹함을 풀다)',
+    literalMeaning: '얼음을 깨다',
+    nuanceTip: '겨울철 얼어붙은 강에서 배가 지나갈 수 있도록 쇄빙선이 얼음을 먼저 깨어 길을 트듯, 침묵을 깨고 친밀해질 때 씁니다.',
+    exampleEn: 'He told a funny joke to break the ice at the party.',
+    exampleKo: '그는 파티의 어색한 분위기를 풀기 위해 재미있는 농담을 던졌다.',
+    category: 'social',
+    words: ['break', 'the', 'ice'],
+    distractors: ['melt', 'cold', 'water', 'freeze']
+  },
+  {
+    id: 'let-the-cat-out-of-the-bag',
+    idiom: 'let the cat out of the bag',
+    meaning: '비밀을 무심코 누설하다 (비밀이 탄로나다)',
+    literalMeaning: '가방에서 고양이를 꺼내놓다',
+    nuanceTip: '중세 시장에서 비싼 아기 돼지 자루에 몰래 고양이를 넣어 속여 팔다 가방이 열려 들통나던 사기 수법에서 유래했습니다.',
+    exampleEn: "Who let the cat out of the bag about our vacation plans?",
+    exampleKo: '우리 휴가 계획 누가 무심코 비밀을 누설해 버린 거야?',
+    category: 'social',
+    words: ['let', 'the', 'cat', 'out', 'of', 'the', 'bag'],
+    distractors: ['dog', 'box', 'pig', 'door']
+  },
+  {
+    id: 'hit-the-nail-on-the-head',
+    idiom: 'hit the nail on the head',
+    meaning: '핵심을 정확히 짚다 (정곡을 찌르다)',
+    literalMeaning: '못의 대가리를 정확히 치다',
+    nuanceTip: '목수가 못을 비뚤어지지 않게 머리 한가운데를 내리치듯 문제의 정곡을 찔렀을 때 쓰는 표현입니다.',
+    exampleEn: 'Your analysis really hit the nail on the head.',
+    exampleKo: '당신의 분석은 정말 핵심을 정확하게 찔렀습니다.',
+    category: 'business',
+    words: ['hit', 'the', 'nail', 'on', 'the', 'head'],
+    distractors: ['hammer', 'point', 'strike', 'wall']
+  },
+  {
+    id: 'cold-feet',
+    idiom: 'get cold feet',
+    meaning: '결정적 순간에 겁을 먹고 망설이다 (발을 빼다)',
+    literalMeaning: '발이 차가워지다',
+    nuanceTip: '극심한 긴장과 두려움으로 혈액순환이 안 되어 손발이 차가워지는 생리적 반응에서 비롯된 표현입니다.',
+    exampleEn: 'He got cold feet right before walking onto the stage.',
+    exampleKo: '그는 무대에 오르기 직전에 두려움이 엄습해 망설였다.',
+    category: 'social',
+    words: ['get', 'cold', 'feet'],
+    distractors: ['hands', 'ice', 'warm', 'step']
+  },
+  {
+    id: 'wrap-ones-head-around',
+    idiom: "wrap one's head around",
+    meaning: '복잡한 개념이나 상황을 간신히 이해하다',
+    literalMeaning: '머리를 둘러싸다',
+    nuanceTip: '너무 방대하거나 놀라운 사실을 머릿속에 온전히 집어넣고 받아들이려 애쓰는 모습을 묘사합니다.',
+    exampleEn: "I still can't wrap my head around this new AI concept.",
+    exampleKo: '난 아직도 이 새로운 AI 개념을 온전히 이해하기가 어려워.',
+    category: 'business',
+    words: ['wrap', 'my', 'head', 'around'],
+    distractors: ['turn', 'mind', 'brain', 'think']
+  },
+  {
+    id: 'take-it-with-a-grain-of-salt',
+    idiom: 'take with a grain of salt',
+    meaning: '곧이곧대로 믿지 않고 걸러서 듣다',
+    literalMeaning: '소금 한 알과 함께 삼키다',
+    nuanceTip: '고대 해독제를 먹을 때 맛을 내거나 삼키기 쉽게 소금 한 알을 곁들이듯, 남의 말을 100% 믿지 않고 비판적으로 받아들인다는 뜻입니다.',
+    exampleEn: 'Take what you read online with a grain of salt.',
+    exampleKo: '인터넷에서 읽는 정보는 액면 그대로 믿지 말고 걸러서 들어.',
+    category: 'daily',
+    words: ['take', 'with', 'a', 'grain', 'of', 'salt'],
+    distractors: ['sugar', 'drop', 'spoon', 'taste']
+  },
+  {
+    id: 'play-it-by-ear',
+    idiom: 'play it by ear',
+    meaning: '계획 없이 상황 봐가면서 임기응변으로 하다',
+    literalMeaning: '악보 없이 귀로 들은 대로 연주하다',
+    nuanceTip: '음악가가 정해진 악보를 보지 않고 즉흥적으로 멜로디를 따라 연주하듯 미리 약속을 정하지 않고 당일 상황을 보자는 뜻입니다.',
+    exampleEn: "I don't have a fixed plan for tomorrow, let's play it by ear.",
+    exampleKo: '내일 구체적인 계획은 없어, 그냥 상황 보고 즉흥적으로 하자.',
+    category: 'daily',
+    words: ['play', 'it', 'by', 'ear'],
+    distractors: ['eye', 'hand', 'hear', 'time']
+  },
+  {
+    id: 'barking-up-the-wrong-tree',
+    idiom: 'bark up the wrong tree',
+    meaning: '엉뚱한 곳에서 헛다리를 짚다',
+    literalMeaning: '사냥감이 없는 엉뚱한 나무를 보고 짖다',
+    nuanceTip: '너구리 사냥개들이 먹잇감이 이미 다른 나무로 도망갔는데도 빈 나무 밑에서 짖어대는 모습에서 유래했습니다.',
+    exampleEn: 'If you think I took your wallet, you are barking up the wrong tree.',
+    exampleKo: '내가 네 지갑을 가져갔다고 생각한다면 넌 완전히 헛다리 짚은 거야.',
+    category: 'social',
+    words: ['bark', 'up', 'the', 'wrong', 'tree'],
+    distractors: ['dog', 'bush', 'run', 'wood']
+  },
+  {
+    id: 'pull-someone-leg',
+    idiom: "pull someone's leg",
+    meaning: '장난으로 농담하다 (놀리다)',
+    literalMeaning: '누군가의 다리를 잡아당기다',
+    nuanceTip: '과거 도둑들이 지나가는 사람의 다리를 걸어 넘어뜨린 데서 유래했으나, 현대에는 귀여운 거짓말로 놀릴 때 가볍게 씁니다.',
+    exampleEn: "Don't get upset, I'm just pulling your leg!",
+    exampleKo: '화내지 마, 그냥 너 놀리려고 한 장난이야!',
+    category: 'social',
+    words: ['pull', 'your', 'leg'],
+    distractors: ['push', 'arm', 'hand', 'kick']
+  },
+  {
+    id: 'elephant-in-the-room',
+    idiom: 'elephant in the room',
+    meaning: '모두가 알고 있지만 말하기 꺼리는 껄끄러운 큰 문제',
+    literalMeaning: '방 한가운데 있는 코끼리',
+    nuanceTip: '방 안에 거대한 코끼리가 있으면 안 볼 수 없는데도 다들 모른 척 침묵하는 불편한 상황을 빗댄 표현입니다.',
+    exampleEn: "No one talked about the budget cuts, but it was the elephant in the room.",
+    exampleKo: '아무도 예산 삭감 얘기를 꺼내지 않았지만, 모두가 의식하는 큰 문제였다.',
+    category: 'business',
+    words: ['elephant', 'in', 'the', 'room'],
+    distractors: ['bear', 'lion', 'house', 'corner']
+  },
+  {
+    id: 'the-best-of-both-worlds',
+    idiom: 'the best of both worlds',
+    meaning: '양쪽의 장점을 모두 누리는 것 (일석이조)',
+    literalMeaning: '두 세계의 최고 장점',
+    nuanceTip: '두 가지 상반된 조건(예: 도시의 편리함과 시골의 여유)에서 좋은 점만 쏙 골라 누리는 이상적인 상태입니다.',
+    exampleEn: 'Working remotely gives me the best of both worlds.',
+    exampleKo: '원격 근무를 하니 일과 여유 두 마리 토끼를 다 잡는 기분이야.',
+    category: 'daily',
+    words: ['the', 'best', 'of', 'both', 'worlds'],
+    distractors: ['life', 'earth', 'good', 'way']
+  },
+  {
+    id: 'in-the-same-boat',
+    idiom: 'in the same boat',
+    meaning: '같은 처지에 놓여 있다 (같은 배를 타다)',
+    literalMeaning: '같은 배 안에 있다',
+    nuanceTip: '거친 풍랑 속에서 같은 작은 배를 탄 선원들처럼 위험과 운명을 함께 나누는 동병상련의 처지를 말합니다.',
+    exampleEn: "We all failed the exam, so we're in the same boat.",
+    exampleKo: '우리 모두 시험에 떨어졌으니 다 같은 처지야.',
+    category: 'social',
+    words: ['in', 'the', 'same', 'boat'],
+    distractors: ['ship', 'sea', 'water', 'place']
+  },
+  {
+    id: 'through-the-grapevine',
+    idiom: 'hear through the grapevine',
+    meaning: '소문이나 풍문으로 전해 듣다',
+    literalMeaning: '포도 덩굴을 타고 소식을 듣다',
+    nuanceTip: '미국 남북전쟁 당시 전신선이 포도 덩굴처럼 얼기설기 얽혀 전파된 비공식 소문에서 유래한 유서 깊은 표현입니다.',
+    exampleEn: 'I heard through the grapevine that Sarah is getting married.',
+    exampleKo: '풍문으로 들었는데 사라가 결혼한다고 하더라고.',
+    category: 'social',
+    words: ['hear', 'through', 'the', 'grapevine'],
+    distractors: ['tree', 'wind', 'rumor', 'wall']
+  },
+  {
+    id: 'on-the-same-page',
+    idiom: 'on the same page',
+    meaning: '서로 같은 생각과 이해를 공유하다',
+    literalMeaning: '같은 페이지를 보고 있다',
+    nuanceTip: '같은 책의 동일한 페이지를 펴놓고 읽듯, 비즈니스 협업이나 대화에서 오해 없이 목표와 상황을 일치시켰을 때 씁니다.',
+    exampleEn: "Let's review the timeline to ensure we are all on the same page.",
+    exampleKo: '우리 모두 이해한 바가 맞는지 타임라인을 다시 한번 확인해 봅시다.',
+    category: 'business',
+    words: ['on', 'the', 'same', 'page'],
+    distractors: ['line', 'book', 'mind', 'word']
+  }
+];
+
+export function getShuffledIdioms(category: 'all' | 'daily' | 'business' | 'social', count = 5): IdiomItem[] {
+  let pool = IDIOM_DATABASE;
+  if (category !== 'all') {
+    pool = pool.filter(item => item.category === category);
+  }
+  // Shuffle pool and take count
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, shuffled.length));
+}
