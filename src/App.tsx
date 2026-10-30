@@ -1,12 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { GameMode, IdiomCategory, IdiomItem, QuestionResult, GameSummary, MasteredIdiomRecord } from './types';
+import React, { useState } from 'react';
+import { GameMode, IdiomCategory, IdiomItem, QuestionResult, GameSummary, MasteredIdiomRecord, GameLogRecord, StudentProfile } from './types';
 import { getShuffledIdioms } from './data/idioms';
 import { StartScreen } from './components/StartScreen';
 import { WordCatchGame } from './components/WordCatchGame';
 import { JellyRescueGame } from './components/JellyRescueGame';
 import { ResultScreen } from './components/ResultScreen';
 import { MasteredListModal } from './components/MasteredListModal';
+import { GoogleSheetModal } from './components/GoogleSheetModal';
 import { getMasteredIdiomRecords, saveMultipleMasteredIdioms } from './utils/masteryStorage';
+import {
+  getStudentProfile,
+  saveStudentProfile,
+  saveGameLog,
+  sendGameLogToGoogleSheet,
+  formatLocalTimestamp,
+} from './utils/googleSheetService';
 
 export default function App() {
   const [screen, setScreen] = useState<'start' | 'game' | 'result'>('start');
@@ -15,6 +23,10 @@ export default function App() {
   const [questions, setQuestions] = useState<IdiomItem[]>([]);
   const [gameSummary, setGameSummary] = useState<GameSummary | null>(null);
   const [isMasteredModalOpen, setIsMasteredModalOpen] = useState(false);
+  const [isGoogleSheetModalOpen, setIsGoogleSheetModalOpen] = useState(false);
+  const [studentProfile, setStudentProfile] = useState<StudentProfile>(() => getStudentProfile());
+  const [latestGameLog, setLatestGameLog] = useState<GameLogRecord | null>(null);
+
   const [masteredRecords, setMasteredRecords] = useState<Record<string, MasteredIdiomRecord>>(() => {
     return getMasteredIdiomRecords();
   });
@@ -40,7 +52,22 @@ export default function App() {
   const handleFinishGame = (_finalScore: number, results: QuestionResult[]) => {
     const maxScore = questions.length * 10;
     const correctCount = results.filter((r) => r.isCorrect).length;
+    const wrongCount = results.length - correctCount;
     const calculatedScore = correctCount * 10;
+    // Compute tap frequency per sentence and overall average
+    const sentenceTaps = results.map((r, idx) => ({
+      sentenceIndex: idx + 1,
+      idiom: r.idiom.idiom,
+      meaning: r.idiom.meaning,
+      taps: r.tapCount || 1,
+      isCorrect: r.isCorrect,
+    }));
+    const totalTaps = sentenceTaps.reduce((sum, item) => sum + item.taps, 0);
+    const averageTaps = results.length > 0 ? parseFloat((totalTaps / results.length).toFixed(1)) : 0;
+    const sentenceTapsSummary = sentenceTaps
+      .map((st) => `문장${st.sentenceIndex}(${st.taps}회)`)
+      .join(', ');
+
     const summary: GameSummary = {
       mode,
       category,
@@ -48,6 +75,8 @@ export default function App() {
       maxScore,
       totalQuestions: questions.length,
       results,
+      averageTaps,
+      totalTaps,
     };
 
     // Save mastered idioms into persistent storage
@@ -59,6 +88,54 @@ export default function App() {
       saveMultipleMasteredIdioms(correctIdiomIds);
       setMasteredRecords(getMasteredIdiomRecords());
     }
+
+    // Update play count and category scores
+    const nextPlayCount = (studentProfile.playCount || 0) + 1;
+    const nextCat1Score =
+      mode === 'catch' ? calculatedScore : studentProfile.category1Score;
+    const nextCat2Score =
+      mode === 'jelly_rescue' ? calculatedScore : studentProfile.category2Score;
+
+    const updatedProfile = saveStudentProfile({
+      playCount: nextPlayCount,
+      category1Score: nextCat1Score,
+      category2Score: nextCat2Score,
+    });
+    setStudentProfile(updatedProfile);
+
+    // Create log record for Google Sheets
+    const displayName = updatedProfile.studentId
+      ? `${updatedProfile.name} (${updatedProfile.studentId})`
+      : updatedProfile.name;
+
+    const logRecord: GameLogRecord = {
+      id: `log_${Date.now()}`,
+      timestamp: formatLocalTimestamp(),
+      name: displayName,
+      play_count: nextPlayCount,
+      correct_count: correctCount,
+      wrong_count: wrongCount,
+      category1_score: nextCat1Score,
+      category2_score: nextCat2Score,
+      total_score: calculatedScore,
+      game_mode: mode === 'catch' ? '단어 캐치 모드' : '젤리탕 구출 모드',
+      total_taps: totalTaps,
+      average_taps: averageTaps,
+      sentence_taps: sentenceTaps,
+      sentence_taps_summary: sentenceTapsSummary,
+      syncedToGoogleSheet: false,
+    };
+
+    saveGameLog(logRecord);
+    setLatestGameLog(logRecord);
+
+    // Auto-dispatch to Google Sheet via NEXT_PUBLIC_GOOGLE_SCRIPT_URL
+    const targetUrl = updatedProfile.gasWebAppUrl || undefined;
+    sendGameLogToGoogleSheet(logRecord, targetUrl).then((res) => {
+      if (res.success) {
+        setLatestGameLog((prev) => (prev ? { ...prev, syncedToGoogleSheet: true } : null));
+      }
+    });
 
     setGameSummary(summary);
     if (calculatedScore > highScore) {
@@ -96,6 +173,8 @@ export default function App() {
             highScore={highScore}
             masteredCount={masteredCount}
             onOpenMasteredList={() => setIsMasteredModalOpen(true)}
+            onOpenGoogleSheetModal={() => setIsGoogleSheetModalOpen(true)}
+            studentProfile={studentProfile}
           />
         )}
 
@@ -121,6 +200,9 @@ export default function App() {
             onRetry={handleRetry}
             onHome={handleHome}
             onOpenMasteredList={() => setIsMasteredModalOpen(true)}
+            onOpenGoogleSheetModal={() => setIsGoogleSheetModalOpen(true)}
+            latestGameLog={latestGameLog}
+            studentProfile={studentProfile}
           />
         )}
 
@@ -129,6 +211,13 @@ export default function App() {
           isOpen={isMasteredModalOpen}
           onClose={() => setIsMasteredModalOpen(false)}
           masteredRecords={masteredRecords}
+        />
+
+        {/* Google Sheet & Apps Script Modal */}
+        <GoogleSheetModal
+          isOpen={isGoogleSheetModalOpen}
+          onClose={() => setIsGoogleSheetModalOpen(false)}
+          onProfileUpdated={(updated) => setStudentProfile(updated)}
         />
       </div>
     </main>

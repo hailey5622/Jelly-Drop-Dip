@@ -42,6 +42,7 @@ export const WordCatchGame: React.FC<WordCatchGameProps> = ({
   const animationFrameRef = useRef<number | null>(null);
   const nextWordIdRef = useRef(1);
   const spawnTimerRef = useRef(0);
+  const currentQuestionTapsRef = useRef(0);
 
   const currentIdiom = questions[currentIdx];
 
@@ -187,6 +188,7 @@ export const WordCatchGame: React.FC<WordCatchGameProps> = ({
       idiom: currentIdiom,
       isCorrect: true,
       mistakes: 0,
+      tapCount: Math.max(1, currentQuestionTapsRef.current),
     };
 
     const updatedResults = [...results, questionResult];
@@ -205,6 +207,7 @@ export const WordCatchGame: React.FC<WordCatchGameProps> = ({
       idiom: currentIdiom,
       isCorrect: false,
       mistakes: 1,
+      tapCount: Math.max(1, currentQuestionTapsRef.current),
     };
 
     const updatedResults = [...results, questionResult];
@@ -215,6 +218,7 @@ export const WordCatchGame: React.FC<WordCatchGameProps> = ({
   };
 
   const handleNextQuestion = () => {
+    currentQuestionTapsRef.current = 0;
     const nextIdx = currentIdx + 1;
     if (nextIdx < questions.length) {
       setCurrentIdx(nextIdx);
@@ -235,8 +239,10 @@ export const WordCatchGame: React.FC<WordCatchGameProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        currentQuestionTapsRef.current++;
         setBasketX((prev) => Math.max(15, prev - 8));
       } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        currentQuestionTapsRef.current++;
         setBasketX((prev) => Math.min(85, prev + 8));
       }
     };
@@ -255,7 +261,13 @@ export const WordCatchGame: React.FC<WordCatchGameProps> = ({
     setBasketX(Math.max(15, Math.min(85, percentage)));
   };
 
+  const handlePointerDown = () => {
+    if (isQuestionSolved || isQuestionFailed) return;
+    currentQuestionTapsRef.current++;
+  };
+
   const moveBasketBy = (delta: number) => {
+    currentQuestionTapsRef.current++;
     setBasketX((prev) => Math.max(15, Math.min(85, prev + delta)));
   };
 
@@ -263,6 +275,7 @@ export const WordCatchGame: React.FC<WordCatchGameProps> = ({
     <div
       ref={containerRef}
       onPointerMove={handlePointerMove}
+      onPointerDown={handlePointerDown}
       className="relative w-full max-w-md mx-auto h-[100dvh] flex flex-col justify-between overflow-hidden select-none bg-linear-to-b from-sky-50 via-amber-50/40 to-orange-100/60 touch-none"
     >
       {/* Top Header */}

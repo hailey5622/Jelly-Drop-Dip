@@ -30,6 +30,7 @@ export const JellyRescueGame: React.FC<JellyRescueGameProps> = ({
   const [mistakes, setMistakes] = useState(0); // 0, 1, or 2 (2 = dipped!)
   const [isResolved, setIsResolved] = useState(false); // question ended (either rescued or dipped)
   const [isSuccess, setIsSuccess] = useState(false);
+  const currentQuestionTapsRef = React.useRef(0);
 
   const currentIdiom = questions[currentIdx];
 
@@ -44,6 +45,7 @@ export const JellyRescueGame: React.FC<JellyRescueGameProps> = ({
   const handleGuessLetter = useCallback(
     (letter: string) => {
       if (isResolved || guessedLetters.has(letter)) return;
+      currentQuestionTapsRef.current++;
 
       const upperLetter = letter.toUpperCase();
       const newGuessed = new Set(guessedLetters);
@@ -80,6 +82,7 @@ export const JellyRescueGame: React.FC<JellyRescueGameProps> = ({
             idiom: currentIdiom,
             isCorrect: true,
             mistakes,
+            tapCount: Math.max(1, currentQuestionTapsRef.current),
           };
           setResults((prev) => [...prev, qResult]);
           speakIdiom(currentIdiom.idiom);
@@ -104,6 +107,7 @@ export const JellyRescueGame: React.FC<JellyRescueGameProps> = ({
             idiom: currentIdiom,
             isCorrect: false,
             mistakes: 2,
+            tapCount: Math.max(1, currentQuestionTapsRef.current),
           };
           setResults((prev) => [...prev, qResult]);
           speakIdiom(currentIdiom.idiom);
@@ -126,6 +130,7 @@ export const JellyRescueGame: React.FC<JellyRescueGameProps> = ({
   }, [handleGuessLetter]);
 
   const handleNextQuestion = () => {
+    currentQuestionTapsRef.current = 0;
     const nextIdx = currentIdx + 1;
     if (nextIdx < questions.length) {
       setCurrentIdx(nextIdx);

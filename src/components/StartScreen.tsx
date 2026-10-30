@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { GameMode, IdiomCategory } from '../types';
+import { GameMode, IdiomCategory, StudentProfile } from '../types';
 import { StartScreenHero } from './CharacterGraphics';
-import { Volume2, VolumeX, Sparkles, Trophy, ArrowRight, BookOpen } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, Trophy, ArrowRight, BookOpen, FileSpreadsheet, GraduationCap } from 'lucide-react';
 import { sounds } from '../utils/sound';
 
 interface StartScreenProps {
@@ -12,6 +12,8 @@ interface StartScreenProps {
   highScore: number;
   masteredCount: number;
   onOpenMasteredList: () => void;
+  onOpenGoogleSheetModal: () => void;
+  studentProfile: StudentProfile;
 }
 
 export const StartScreen: React.FC<StartScreenProps> = ({
@@ -21,6 +23,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({
   highScore,
   masteredCount,
   onOpenMasteredList,
+  onOpenGoogleSheetModal,
+  studentProfile,
 }) => {
   const [muted, setMuted] = React.useState(sounds.getMuted());
 
@@ -35,6 +39,10 @@ export const StartScreen: React.FC<StartScreenProps> = ({
     { id: 'business', label: '직장/오피스', icon: '💼' },
     { id: 'social', label: '감정/관계', icon: '💬' },
   ];
+
+  const studentDisplayName = studentProfile.studentId
+    ? `${studentProfile.name}(${studentProfile.studentId})`
+    : studentProfile.name || '대학생';
 
   return (
     <div className="flex flex-col items-center justify-between min-h-[100dvh] w-full max-w-md mx-auto p-4 select-none relative z-10">
@@ -70,6 +78,39 @@ export const StartScreen: React.FC<StartScreenProps> = ({
           </button>
         </div>
       </header>
+
+      {/* University Student & Google Sheet Log Bar */}
+      <section className="w-full mt-1 px-1">
+        <div className="bg-linear-to-r from-purple-50 via-indigo-50/50 to-emerald-50 border border-purple-200/80 rounded-2xl p-2.5 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <GraduationCap className="w-4 h-4" />
+            </div>
+            <div className="text-left">
+              <div className="text-[11px] font-extrabold text-slate-900 flex items-center gap-1">
+                <span>{studentDisplayName}</span>
+                <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.2 rounded-full">
+                  {studentProfile.playCount}회 플레이
+                </span>
+              </div>
+              <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-2 mt-0.2">
+                <span>Cat1 (캐치): <b className="text-amber-600">{studentProfile.category1Score}점</b></span>
+                <span>•</span>
+                <span>Cat2 (구출): <b className="text-violet-600">{studentProfile.category2Score}점</b></span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={onOpenGoogleSheetModal}
+            className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
+            title="구글 시트 연동 및 앱스 스크립트 설정"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>시트 기록</span>
+          </button>
+        </div>
+      </section>
 
       {/* Main Title & Hero Graphic */}
       <div className="flex flex-col items-center text-center my-auto w-full">
