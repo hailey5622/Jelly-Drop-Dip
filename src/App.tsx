@@ -1,20 +1,31 @@
-import React, { useState } from 'react';
-import { GameMode, IdiomCategory, IdiomItem, QuestionResult, GameSummary, MasteredIdiomRecord, GameLogRecord, StudentProfile } from './types';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  GameMode,
+  IdiomCategory,
+  IdiomItem,
+  QuestionResult,
+  GameSummary,
+  MasteredIdiomRecord,
+  GameLogRecord,
+  StudentProfile,
+  SheetGamePayload,
+} from './types';
 import { getShuffledIdioms } from './data/idioms';
 import { StartScreen } from './components/StartScreen';
 import { WordCatchGame } from './components/WordCatchGame';
 import { JellyRescueGame } from './components/JellyRescueGame';
 import { ResultScreen } from './components/ResultScreen';
 import { MasteredListModal } from './components/MasteredListModal';
-import { GoogleSheetModal } from './components/GoogleSheetModal';
+import { NicknameModal } from './components/NicknameModal';
+import { SettingsModal } from './components/SettingsModal';
 import { getMasteredIdiomRecords, saveMultipleMasteredIdioms } from './utils/masteryStorage';
 import {
   getStudentProfile,
   saveStudentProfile,
   saveGameLog,
-  sendGameLogToGoogleSheet,
   formatLocalTimestamp,
-} from './utils/googleSheetService';
+} from './utils/gameStorage';
+import { sendGameRecordToSheet } from './utils/googleSheetService';
 
 export default function App() {
   const [screen, setScreen] = useState<'start' | 'game' | 'result'>('start');
@@ -22,10 +33,21 @@ export default function App() {
   const [category, setCategory] = useState<IdiomCategory>('all');
   const [questions, setQuestions] = useState<IdiomItem[]>([]);
   const [gameSummary, setGameSummary] = useState<GameSummary | null>(null);
+
+  // Modals
   const [isMasteredModalOpen, setIsMasteredModalOpen] = useState(false);
-  const [isGoogleSheetModalOpen, setIsGoogleSheetModalOpen] = useState(false);
+  const [isNicknameModalOpen, setIsNicknameModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
+  // Student Profile & Game Logs
   const [studentProfile, setStudentProfile] = useState<StudentProfile>(() => getStudentProfile());
   const [latestGameLog, setLatestGameLog] = useState<GameLogRecord | null>(null);
+
+  // Google Sheets Sync Status
+  const [isSyncingSheet, setIsSyncingSheet] = useState(false);
+  const [sheetSyncSuccess, setSheetSyncSuccess] = useState<boolean | null>(null);
+  const [sheetSyncMessage, setSheetSyncMessage] = useState<string | null>(null);
+  const lastSheetPayloadRef = useRef<SheetGamePayload | null>(null);
 
   const [masteredRecords, setMasteredRecords] = useState<Record<string, MasteredIdiomRecord>>(() => {
     return getMasteredIdiomRecords();
@@ -39,8 +61,28 @@ export default function App() {
     }
   });
 
-  // Start new game session
+  // Prompt nickname on first load if not set
+  useEffect(() => {
+    if (!studentProfile.name || !studentProfile.name.trim()) {
+      setIsNicknameModalOpen(true);
+    }
+  }, []);
+
+  // Save nickname handler
+  const handleSaveNickname = (nickname: string) => {
+    const trimmed = nickname.trim();
+    if (!trimmed) return;
+    const updated = saveStudentProfile({ name: trimmed });
+    setStudentProfile(updated);
+    setIsNicknameModalOpen(false);
+  };
+
+  // Start new game session (guarded by nickname check)
   const handleStartGame = (selectedMode: GameMode, selectedCat: IdiomCategory) => {
+    if (!studentProfile.name || !studentProfile.name.trim()) {
+      setIsNicknameModalOpen(true);
+      return;
+    }
     const selectedQuestions = getShuffledIdioms(selectedCat, 5);
     setMode(selectedMode);
     setCategory(selectedCat);
@@ -53,7 +95,13 @@ export default function App() {
     const maxScore = questions.length * 10;
     const correctCount = results.filter((r) => r.isCorrect).length;
     const wrongCount = results.length - correctCount;
-    const calculatedScore = correctCount * 10;
+
+    // Calculate actual score from the game session (never arbitrarily 0 or assumed 100)
+    const calculatedScore =
+      typeof _finalScore === 'number' && !isNaN(_finalScore) && _finalScore >= 0
+        ? _finalScore
+        : correctCount * 10;
+
     // Compute tap frequency per sentence and overall average
     const sentenceTaps = results.map((r, idx) => ({
       sentenceIndex: idx + 1,
@@ -90,11 +138,14 @@ export default function App() {
     }
 
     // Update play count and category scores
+    // 단어 캐치 모드(mode === 'catch') -> idiomdropscore (category1Score)
+    // 젤리탕 구출 모드(mode === 'jelly_rescue') -> jellydipscore (category2Score)
+    // 게임을 플레이하지 않은 모드의 점수는 기존 기록을 유지!
     const nextPlayCount = (studentProfile.playCount || 0) + 1;
-    const nextCat1Score =
-      mode === 'catch' ? calculatedScore : studentProfile.category1Score;
-    const nextCat2Score =
-      mode === 'jelly_rescue' ? calculatedScore : studentProfile.category2Score;
+    const isCatch = mode === 'catch';
+    const isJelly = mode === 'jelly_rescue';
+    const nextCat1Score = isCatch ? calculatedScore : (studentProfile.category1Score || 0);
+    const nextCat2Score = isJelly ? calculatedScore : (studentProfile.category2Score || 0);
 
     const updatedProfile = saveStudentProfile({
       playCount: nextPlayCount,
@@ -103,15 +154,11 @@ export default function App() {
     });
     setStudentProfile(updatedProfile);
 
-    // Create log record for Google Sheets
-    const displayName = updatedProfile.studentId
-      ? `${updatedProfile.name} (${updatedProfile.studentId})`
-      : updatedProfile.name;
-
+    // Create log record for local storage
     const logRecord: GameLogRecord = {
       id: `log_${Date.now()}`,
       timestamp: formatLocalTimestamp(),
-      name: displayName,
+      name: updatedProfile.name.trim(),
       play_count: nextPlayCount,
       correct_count: correctCount,
       wrong_count: wrongCount,
@@ -123,25 +170,40 @@ export default function App() {
       average_taps: averageTaps,
       sentence_taps: sentenceTaps,
       sentence_taps_summary: sentenceTapsSummary,
-      syncedToGoogleSheet: false,
     };
 
     saveGameLog(logRecord);
     setLatestGameLog(logRecord);
 
-    // Auto-dispatch to Google Sheet via NEXT_PUBLIC_GOOGLE_SCRIPT_URL
-    const targetUrl = updatedProfile.gasWebAppUrl || undefined;
-    sendGameLogToGoogleSheet(logRecord, targetUrl).then((res) => {
-      setLatestGameLog((prev) =>
-        prev
-          ? {
-              ...prev,
-              syncedToGoogleSheet: res.success,
-              syncError: res.success ? undefined : res.message,
-            }
-          : null
-      );
-    });
+    // Build 4-column payload for Google Sheets (GameLogs)
+    const sheetPayload: SheetGamePayload = {
+      name: updatedProfile.name.trim(),
+      playcount: nextPlayCount,
+      jellydipscore: nextCat2Score,
+      idiomdropscore: nextCat1Score,
+      mode,
+      score: calculatedScore,
+      game_id: `game_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      is_test: false,
+    };
+    lastSheetPayloadRef.current = sheetPayload;
+
+    // Automatic dispatch to Google Sheets
+    setIsSyncingSheet(true);
+    setSheetSyncSuccess(null);
+    setSheetSyncMessage(null);
+
+    sendGameRecordToSheet(sheetPayload)
+      .then((res) => {
+        setIsSyncingSheet(false);
+        setSheetSyncSuccess(res.success);
+        setSheetSyncMessage(res.message);
+      })
+      .catch((err) => {
+        setIsSyncingSheet(false);
+        setSheetSyncSuccess(false);
+        setSheetSyncMessage(String(err));
+      });
 
     setGameSummary(summary);
     if (calculatedScore > highScore) {
@@ -153,6 +215,26 @@ export default function App() {
       }
     }
     setScreen('result');
+  };
+
+  // Retry Google Sheets sync manually if failed
+  const handleRetrySheetSync = () => {
+    if (!lastSheetPayloadRef.current) return;
+    setIsSyncingSheet(true);
+    setSheetSyncSuccess(null);
+    setSheetSyncMessage(null);
+
+    sendGameRecordToSheet(lastSheetPayloadRef.current)
+      .then((res) => {
+        setIsSyncingSheet(false);
+        setSheetSyncSuccess(res.success);
+        setSheetSyncMessage(res.message);
+      })
+      .catch((err) => {
+        setIsSyncingSheet(false);
+        setSheetSyncSuccess(false);
+        setSheetSyncMessage(String(err));
+      });
   };
 
   // Retry with same mode & category
@@ -179,7 +261,8 @@ export default function App() {
             highScore={highScore}
             masteredCount={masteredCount}
             onOpenMasteredList={() => setIsMasteredModalOpen(true)}
-            onOpenGoogleSheetModal={() => setIsGoogleSheetModalOpen(true)}
+            onOpenSettings={() => setIsSettingsModalOpen(true)}
+            onOpenNicknameModal={() => setIsNicknameModalOpen(true)}
             studentProfile={studentProfile}
           />
         )}
@@ -206,9 +289,13 @@ export default function App() {
             onRetry={handleRetry}
             onHome={handleHome}
             onOpenMasteredList={() => setIsMasteredModalOpen(true)}
-            onOpenGoogleSheetModal={() => setIsGoogleSheetModalOpen(true)}
+            onOpenSettings={() => setIsSettingsModalOpen(true)}
             latestGameLog={latestGameLog}
             studentProfile={studentProfile}
+            isSyncingSheet={isSyncingSheet}
+            sheetSyncSuccess={sheetSyncSuccess}
+            sheetSyncMessage={sheetSyncMessage}
+            onRetrySheetSync={handleRetrySheetSync}
           />
         )}
 
@@ -219,14 +306,24 @@ export default function App() {
           masteredRecords={masteredRecords}
         />
 
-        {/* Google Sheet & Apps Script Modal */}
-        <GoogleSheetModal
-          isOpen={isGoogleSheetModalOpen}
-          onClose={() => setIsGoogleSheetModalOpen(false)}
+        {/* Nickname Input Modal */}
+        <NicknameModal
+          isOpen={isNicknameModalOpen}
+          currentNickname={studentProfile.name}
+          onSaveNickname={handleSaveNickname}
+          canClose={Boolean(studentProfile.name && studentProfile.name.trim())}
+          onClose={() => setIsNicknameModalOpen(false)}
+        />
+
+        {/* Settings & Google Sheets Modal */}
+        <SettingsModal
+          isOpen={isSettingsModalOpen}
+          onClose={() => setIsSettingsModalOpen(false)}
+          studentProfile={studentProfile}
+          onOpenNicknameModal={() => setIsNicknameModalOpen(true)}
           onProfileUpdated={(updated) => setStudentProfile(updated)}
         />
       </div>
     </main>
   );
 }
-

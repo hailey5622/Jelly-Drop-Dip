@@ -13,24 +13,25 @@ import {
   ChevronDown,
   ChevronUp,
   BookOpen,
-  FileSpreadsheet,
+  User,
   Check,
   Send,
-  ExternalLink,
-  GraduationCap,
   AlertCircle,
+  Settings,
 } from 'lucide-react';
-import { GOOGLE_SPREADSHEET_URL } from '../data/googleAppsScriptCode';
-import { sendGameLogToGoogleSheet } from '../utils/googleSheetService';
 
 interface ResultScreenProps {
   summary: GameSummary;
   onRetry: () => void;
   onHome: () => void;
   onOpenMasteredList?: () => void;
-  onOpenGoogleSheetModal?: () => void;
+  onOpenSettings?: () => void;
   latestGameLog?: GameLogRecord | null;
   studentProfile?: StudentProfile;
+  isSyncingSheet?: boolean;
+  sheetSyncSuccess?: boolean | null;
+  sheetSyncMessage?: string | null;
+  onRetrySheetSync?: () => void;
 }
 
 export const ResultScreen: React.FC<ResultScreenProps> = ({
@@ -38,26 +39,16 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   onRetry,
   onHome,
   onOpenMasteredList,
-  onOpenGoogleSheetModal,
+  onOpenSettings,
   latestGameLog,
   studentProfile,
+  isSyncingSheet = false,
+  sheetSyncSuccess = null,
+  sheetSyncMessage = null,
+  onRetrySheetSync,
 }) => {
   const [activeTab, setActiveTab] = useState<'wrong' | 'all'>('wrong');
   const [expandedIdiomId, setExpandedIdiomId] = useState<string | null>(null);
-  const [isSending, setIsSending] = useState(false);
-  const [sendSuccess, setSendSuccess] = useState<boolean | null>(
-    latestGameLog?.syncedToGoogleSheet ?? null
-  );
-  const [errorMessage, setErrorMessage] = useState<string | null>(
-    latestGameLog?.syncError ?? null
-  );
-
-  React.useEffect(() => {
-    if (latestGameLog) {
-      setSendSuccess(latestGameLog.syncedToGoogleSheet);
-      setErrorMessage(latestGameLog.syncError ?? null);
-    }
-  }, [latestGameLog?.syncedToGoogleSheet, latestGameLog?.syncError]);
 
   const wrongResults = summary.results.filter((r) => !r.isCorrect);
   const correctResults = summary.results.filter((r) => r.isCorrect);
@@ -88,23 +79,8 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
     setExpandedIdiomId(expandedIdiomId === id ? null : id);
   };
 
-  const handleManualSync = async () => {
-    if (!latestGameLog) return;
-    if (!studentProfile?.gasWebAppUrl) {
-      if (onOpenGoogleSheetModal) onOpenGoogleSheetModal();
-      return;
-    }
-    setIsSending(true);
-    setErrorMessage(null);
-    const res = await sendGameLogToGoogleSheet(latestGameLog, studentProfile.gasWebAppUrl);
-    setIsSending(false);
-    setSendSuccess(res.success);
-    if (!res.success) {
-      setErrorMessage(res.message);
-    } else {
-      setErrorMessage(null);
-    }
-  };
+  const nickname = studentProfile?.name || latestGameLog?.name || '사용자';
+  const isCatchMode = summary.mode === 'catch';
 
   return (
     <div className="flex flex-col justify-between min-h-[100dvh] w-full max-w-md mx-auto p-4 select-none relative z-10 bg-linear-to-b from-purple-50/70 via-white to-purple-50/50">
@@ -135,153 +111,104 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           <div className="text-[11px] opacity-90">{scoreBadge.desc}</div>
         </div>
 
-        {/* University Student Google Sheet Record Card */}
-        {latestGameLog && (
-          <div className="mt-2.5 bg-white/95 rounded-2xl border border-emerald-200 p-2.5 text-left shadow-xs">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
-              <div className="flex items-center gap-1.5">
-                <GraduationCap className="w-3.5 h-3.5 text-purple-600" />
-                <span className="text-[11px] font-black text-slate-900">
-                  대학생 학습 로그 (구글 시트 연동)
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-400 font-mono">
-                #{latestGameLog.play_count}회차
+        {/* Google Sheets GameLogs 4-Column Record Card */}
+        <div className="mt-2.5 bg-white/95 rounded-2xl border border-purple-200/80 p-2.5 text-left shadow-xs">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
+            <div className="flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-purple-600" />
+              <span className="text-[11px] font-black text-slate-900">
+                Google Sheets (GameLogs) 기록 현황
               </span>
             </div>
+            <span className="text-[10px] text-purple-700 font-mono font-bold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+              #{studentProfile?.playCount || latestGameLog?.play_count || 1}회차
+            </span>
+          </div>
 
-            {/* Grid stats corresponding to required Google Sheet columns */}
-            <div className="grid grid-cols-3 gap-1 text-[10px] text-center mb-1.5">
-              <div className="bg-slate-50 p-1.5 rounded-lg border border-slate-100">
-                <div className="text-slate-400 text-[9px] font-bold">학생명</div>
-                <div className="font-extrabold text-slate-800 truncate">{latestGameLog.name}</div>
-              </div>
-              <div className="bg-slate-50 p-1.5 rounded-lg border border-slate-100">
-                <div className="text-slate-400 text-[9px] font-bold">정답 / 오답</div>
-                <div className="font-extrabold text-emerald-600">
-                  {latestGameLog.correct_count} / {latestGameLog.wrong_count}
-                </div>
-              </div>
-              <div className="bg-slate-50 p-1.5 rounded-lg border border-slate-100">
-                <div className="text-slate-400 text-[9px] font-bold">Cat 1 / Cat 2</div>
-                <div className="font-extrabold text-purple-700">
-                  {latestGameLog.category1_score} / {latestGameLog.category2_score}
-                </div>
+          {/* 4 Google Sheets Columns Grid */}
+          <div className="grid grid-cols-4 gap-1 text-[10px] text-center mb-2">
+            <div className="bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+              <div className="text-slate-400 text-[9px] font-bold">A. name</div>
+              <div className="font-extrabold text-slate-800 truncate">{nickname}</div>
+            </div>
+            <div className="bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+              <div className="text-slate-400 text-[9px] font-bold">B. playcount</div>
+              <div className="font-extrabold text-purple-700">
+                {studentProfile?.playCount || latestGameLog?.play_count || 1}회
               </div>
             </div>
-
-            {/* Tap Frequency Per Sentence & Average Row */}
-            <div className="bg-purple-50/80 rounded-xl p-2 border border-purple-100 mb-2">
-              <div className="flex items-center justify-between text-[10px] mb-1">
-                <span className="font-black text-purple-900 flex items-center gap-1">
-                  <span>문장별 탭 빈도 및 평균</span>
-                </span>
-                <span className="bg-purple-600 text-white font-extrabold px-1.5 py-0.2 rounded-full text-[9px]">
-                  평균 {latestGameLog.average_taps}회 (총 {latestGameLog.total_taps}회)
-                </span>
-              </div>
-              <div className="flex items-center gap-1 overflow-x-auto pb-0.5 custom-scrollbar text-[9px]">
-                {latestGameLog.sentence_taps && latestGameLog.sentence_taps.length > 0 ? (
-                  latestGameLog.sentence_taps.map((st) => (
-                    <div
-                      key={st.sentenceIndex}
-                      className="bg-white px-2 py-0.5 rounded-md border border-purple-200 text-slate-700 font-bold whitespace-nowrap shadow-2xs"
-                    >
-                      <span className="text-purple-600">문장{st.sentenceIndex}:</span>{' '}
-                      <span className="text-slate-900">{st.taps}회</span>
-                    </div>
-                  ))
-                ) : (
-                  <span className="text-slate-500 font-semibold">{latestGameLog.sentence_taps_summary}</span>
-                )}
+            <div className={`p-1.5 rounded-lg border ${!isCatchMode ? 'bg-violet-50 border-violet-200 ring-1 ring-violet-300' : 'bg-slate-50 border-slate-100'}`}>
+              <div className="text-slate-400 text-[9px] font-bold">C. jellydip</div>
+              <div className="font-extrabold text-violet-700">
+                {studentProfile?.category2Score || 0}점
               </div>
             </div>
-
-            {/* Sync Status & Action Bar */}
-            <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100 text-[10px]">
-              {sendSuccess ? (
-                <div className="flex items-center gap-1 text-emerald-700 font-bold">
-                  <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>구글 시트 저장 완료!</span>
-                </div>
-              ) : isSending ? (
-                <div className="flex items-center gap-1 text-purple-700 font-bold animate-pulse">
-                  <Send className="w-3 h-3 text-purple-600 animate-spin shrink-0" />
-                  <span>시트 기록 전송 중...</span>
-                </div>
-              ) : errorMessage ? (
-                <div className="flex items-center gap-1 text-rose-700 font-bold">
-                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                  <span>저장 실패 (아래 확인)</span>
-                </div>
-              ) : (
-                <div className="text-slate-500 font-medium">
-                  {studentProfile?.gasWebAppUrl ? '시트 전송 대기 중' : '웹 앱 연동 필요'}
-                </div>
-              )}
-
-              <div className="flex items-center gap-1">
-                {!sendSuccess && (
-                  <button
-                    onClick={handleManualSync}
-                    disabled={isSending}
-                    className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <Send className="w-2.5 h-2.5" />
-                    <span>{isSending ? '전송 중...' : '다시 전송'}</span>
-                  </button>
-                )}
-
-                <a
-                  href={GOOGLE_SPREADSHEET_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-2 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold border border-purple-200 flex items-center gap-0.5"
-                >
-                  <span>시트 확인</span>
-                  <ExternalLink className="w-2.5 h-2.5" />
-                </a>
-
-                {onOpenGoogleSheetModal && (
-                  <button
-                    onClick={onOpenGoogleSheetModal}
-                    className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold cursor-pointer"
-                    title="구글 시트 연동 및 Apps Script 코드 보기"
-                  >
-                    설정/코드
-                  </button>
-                )}
+            <div className={`p-1.5 rounded-lg border ${isCatchMode ? 'bg-amber-50 border-amber-200 ring-1 ring-amber-300' : 'bg-slate-50 border-slate-100'}`}>
+              <div className="text-slate-400 text-[9px] font-bold">D. idiomdrop</div>
+              <div className="font-extrabold text-amber-700">
+                {studentProfile?.category1Score || 0}점
               </div>
             </div>
+          </div>
 
-            {/* Error Detail Banner when failed (Requirement 5) */}
-            {!sendSuccess && errorMessage && (
-              <div className="mt-1.5 p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[10px] space-y-1">
-                <div className="flex items-center justify-between font-extrabold text-rose-900">
-                  <span className="flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3 text-rose-600 shrink-0" />
-                    구글 시트 자동 기록 오류 안내
-                  </span>
-                  {onOpenGoogleSheetModal && (
-                    <button
-                      onClick={onOpenGoogleSheetModal}
-                      className="text-rose-700 underline text-[9.5px] font-bold cursor-pointer"
-                    >
-                      해결 방법 보기
-                    </button>
-                  )}
-                </div>
-                <p className="text-[9.5px] text-rose-700 leading-snug break-keep">
-                  {errorMessage}
-                </p>
+          {/* Google Sheets Sync Status Bar */}
+          <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-slate-100 text-[10px]">
+            {sheetSyncSuccess ? (
+              <div className="flex items-center gap-1 text-emerald-700 font-bold">
+                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>시트(GameLogs) 저장 완료!</span>
+              </div>
+            ) : isSyncingSheet ? (
+              <div className="flex items-center gap-1 text-purple-700 font-bold animate-pulse">
+                <Send className="w-3 h-3 text-purple-600 animate-spin shrink-0" />
+                <span>Google Sheets 저장 중...</span>
+              </div>
+            ) : sheetSyncSuccess === false ? (
+              <div className="flex items-center gap-1 text-rose-700 font-bold">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <span>시트 저장 실패</span>
+              </div>
+            ) : (
+              <div className="text-slate-400 font-medium">
+                URL 미등록 (로컬 저장 유지됨)
               </div>
             )}
+
+            <div className="flex items-center gap-1">
+              {sheetSyncSuccess === false && onRetrySheetSync && (
+                <button
+                  onClick={onRetrySheetSync}
+                  disabled={isSyncingSheet}
+                  className="px-2 py-0.8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 cursor-pointer transition-colors active:scale-95"
+                >
+                  <Send className="w-2.5 h-2.5" />
+                  <span>다시 시도</span>
+                </button>
+              )}
+
+              {onOpenSettings && (
+                <button
+                  onClick={onOpenSettings}
+                  className="px-2 py-0.8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold flex items-center gap-0.5 cursor-pointer"
+                  title="Google Sheets 연동 설정 열기"
+                >
+                  <Settings className="w-3 h-3" />
+                  <span>시트설정</span>
+                </button>
+              )}
+            </div>
           </div>
-        )}
+
+          {sheetSyncSuccess === false && sheetSyncMessage && (
+            <div className="mt-1.5 p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[9.5px] leading-snug">
+              {sheetSyncMessage}
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Review Section */}
-      <div className="flex-1 overflow-y-auto px-1 py-2 my-2 space-y-3 max-h-[50dvh] custom-scrollbar">
+      <div className="flex-1 overflow-y-auto px-1 py-2 my-2 space-y-3 max-h-[46dvh] custom-scrollbar">
         {/* Review Tabs */}
         <div className="flex items-center justify-between border-b border-slate-200 pb-2">
           <div className="flex items-center gap-2">
@@ -352,7 +279,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
                         </h4>
                       </div>
 
-                      {/* Korean Meaning (영어 + 한글 뜻 모아서 보여주는 기능) */}
+                      {/* Korean Meaning */}
                       <p className="text-xs font-bold text-slate-700 mt-1">
                         {idiom.meaning}
                       </p>

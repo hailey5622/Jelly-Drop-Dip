@@ -20,7 +20,7 @@ export interface QuestionResult {
   isCorrect: boolean;
   mistakes: number;
   timeSpentSec?: number;
-  tapCount?: number; // 해당 문장 풀이 중 탭 횟수
+  tapCount?: number;
 }
 
 export interface GameSummary {
@@ -30,13 +30,13 @@ export interface GameSummary {
   maxScore: number;
   totalQuestions: number;
   results: QuestionResult[];
-  averageTaps?: number; // 문장당 평균 탭 수
+  averageTaps?: number;
   totalTaps?: number;
 }
 
 export interface MasteredIdiomRecord {
   idiomId: string;
-  firstMasteredAt: string; // ISO string
+  firstMasteredAt: string;
   timesMastered: number;
 }
 
@@ -55,25 +55,41 @@ export interface GameLogRecord {
   play_count: number;
   correct_count: number;
   wrong_count: number;
-  category1_score: number; // Word Catch score
-  category2_score: number; // Jelly Rescue score
+  category1_score: number; // Word Catch score (idiomdropscore)
+  category2_score: number; // Jelly Rescue score (jellydipscore)
   total_score: number;
   game_mode: string;
-  // 각 문장별 탭 빈도 및 평균 필드
   total_taps: number;
   average_taps: number;
   sentence_taps: SentenceTapMetric[];
   sentence_taps_summary: string;
-  syncedToGoogleSheet: boolean;
+  syncedToGoogleSheet?: boolean;
   syncError?: string;
 }
 
 export interface StudentProfile {
-  name: string;
-  studentId: string;
+  name: string; // User's Nickname
+  studentId?: string;
   playCount: number;
-  category1Score: number; // Word Catch high/last score
-  category2Score: number; // Jelly Rescue high/last score
-  gasWebAppUrl: string;
+  category1Score: number; // Word Catch actual score (idiomdropscore)
+  category2Score: number; // Jelly Rescue actual score (jellydipscore)
+  gasWebAppUrl?: string; // Google Apps Script Web App URL
 }
 
+/**
+ * 4 required columns for Google Sheets 'GameLogs':
+ * Column A: name
+ * Column B: playcount
+ * Column C: jellydipscore
+ * Column D: idiomdropscore
+ */
+export interface SheetGamePayload {
+  name: string;
+  playcount: number;
+  jellydipscore: number;
+  idiomdropscore: number;
+  mode: GameMode | 'test';
+  score: number;
+  game_id?: string;
+  is_test?: boolean;
+}
