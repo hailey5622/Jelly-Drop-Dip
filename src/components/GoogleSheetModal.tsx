@@ -490,10 +490,17 @@ export const GoogleSheetModal: React.FC<GoogleSheetModalProps> = ({
                               시트 전송 완료
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                              <AlertCircle className="w-3 h-3" />
-                              시트 미연동 (로컬 보관)
-                            </span>
+                            <div className="flex flex-col text-left">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                                <AlertCircle className="w-3 h-3 text-rose-600" />
+                                시트 저장 실패
+                              </span>
+                              {log.syncError && (
+                                <span className="text-[9px] text-rose-600 mt-0.5 line-clamp-1 max-w-[200px]" title={log.syncError}>
+                                  {log.syncError}
+                                </span>
+                              )}
+                            </div>
                           )}
 
                           <button

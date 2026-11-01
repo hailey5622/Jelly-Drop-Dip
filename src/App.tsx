@@ -132,9 +132,15 @@ export default function App() {
     // Auto-dispatch to Google Sheet via NEXT_PUBLIC_GOOGLE_SCRIPT_URL
     const targetUrl = updatedProfile.gasWebAppUrl || undefined;
     sendGameLogToGoogleSheet(logRecord, targetUrl).then((res) => {
-      if (res.success) {
-        setLatestGameLog((prev) => (prev ? { ...prev, syncedToGoogleSheet: true } : null));
-      }
+      setLatestGameLog((prev) =>
+        prev
+          ? {
+              ...prev,
+              syncedToGoogleSheet: res.success,
+              syncError: res.success ? undefined : res.message,
+            }
+          : null
+      );
     });
 
     setGameSummary(summary);

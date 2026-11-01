@@ -8,20 +8,40 @@
  * [스프레드시트 열 구성]
  * timestamp | name | play_count | correct_count | wrong_count | category1-score | category2-score | total_score | game_mode | average_taps | total_taps | sentence_taps_summary
  *
- * [배포 방법 3단계 (초간단)]
+ * [배포 방법 3단계 (초간단 & 중요)]
  * 1. 구글 스프레드시트 메뉴에서 [확장 프로그램] -> [Apps Script] 클릭
  * 2. 기존 코드를 모두 지우고 본 스크립트 코드를 붙여넣은 뒤 [저장(Ctrl+S / Cmd+S)]
- * 3. 우측 상단 [배포] -> [새 배포] 클릭
+ * 3. 우측 상단 [배포] -> [새 배포] 클릭 ★필수★
  *    - 유형 선택: [웹 앱] (톱니바퀴 아이콘 클릭 후 웹 앱 선택)
  *    - 설명: 영어 숙어 게임 기록 (문장별 탭 빈도 및 평균 포함)
  *    - 다음 사용자 권한으로 실행: [나 (내 계정)]
- *    - 액세스 권한이 있는 사용자: [모든 사용자 (Anyone)] ★필수★
+ *    - 액세스 권한이 있는 사용자: [모든 사용자 (Anyone)] ★필수! (로그인 없이 브라우저에서 기록 전송 허용)★
  *    - [배포] 클릭 후 승인 절차를 완료하고, 생성된 웹 앱 URL(https://script.google.com/macros/s/.../exec)을
- *      .env.local 파일의 NEXT_PUBLIC_GOOGLE_SCRIPT_URL 키 값으로 사용합니다.
+ *      복사하여 게임 설정에 입력하거나 .env.local 파일의 NEXT_PUBLIC_GOOGLE_SCRIPT_URL 키 값으로 사용합니다.
  */
 
 const SPREADSHEET_ID = "1Xqi-30h5j-UpikfA0WYnYornKGCcCEyuy5KYqsaH_CE";
 const SHEET_NAME = "GameLogs";
+
+function getSpreadsheet() {
+  let ss = null;
+  try {
+    ss = SpreadsheetApp.getActiveSpreadsheet();
+  } catch (err) {
+    // Not container-bound or exception
+  }
+  if (!ss && SPREADSHEET_ID) {
+    try {
+      ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    } catch (err) {
+      // openById failed
+    }
+  }
+  if (!ss) {
+    throw new Error("스프레드시트를 열 수 없습니다. 스프레드시트 ID 또는 권한을 확인해 주세요: " + SPREADSHEET_ID);
+  }
+  return ss;
+}
 
 function doPost(e) {
   try {
@@ -36,7 +56,7 @@ function doPost(e) {
       data = e.parameter;
     }
 
-    const ss = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getSpreadsheet();
     let sheet = ss.getSheetByName(SHEET_NAME);
     if (!sheet) {
       sheet = ss.getSheets()[0] || ss.insertSheet(SHEET_NAME);
@@ -160,6 +180,8 @@ function doPost(e) {
         wrong_count: wrongCount,
         category1_score: cat1Score,
         category2_score: cat2Score,
+        total_score: totalScore,
+        game_mode: gameMode,
         average_taps: avgTaps,
         total_taps: totalTaps,
         sentence_taps_summary: sentenceSummary
@@ -182,7 +204,7 @@ function doPost(e) {
 function doGet(e) {
   if (!e || !e.parameter || Object.keys(e.parameter).length === 0) {
     return ContentService.createTextOutput(JSON.stringify({
-      status: "ready",
+      status: "success",
       message: "대학생 영어 숙어 게임 구글 시트 연동 웹 앱이 정상 동작 중입니다.",
       spreadsheet_id: SPREADSHEET_ID
     })).setMimeType(ContentService.MimeType.JSON);

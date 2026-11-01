@@ -1,10 +1,9 @@
 import { GameLogRecord, StudentProfile } from '../types';
-import { GOOGLE_SPREADSHEET_URL } from '../data/googleAppsScriptCode';
 
 const PROFILE_KEY = 'idiom_university_student_profile';
 const LOGS_KEY = 'idiom_game_play_logs';
 
-// Read default Web App URL from environment variable (.env.local)
+// Read default Web App URL from environment variable (.env.local or process)
 export const DEFAULT_GOOGLE_SCRIPT_URL =
   (import.meta.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL as string) ||
   (import.meta.env.VITE_GOOGLE_SCRIPT_URL as string) ||
@@ -97,7 +96,19 @@ export function formatLocalTimestamp(date = new Date()): string {
 
 /**
  * Sends a game log to the Google Apps Script Web App URL.
- * Automatically transmits tap frequency per sentence and average taps to Google Sheets!
+ * Transmits:
+ * - 이름 (name)
+ * - 플레이 횟수 (play_count)
+ * - 정답 수 (correct_count)
+ * - 오답 수 (wrong_count)
+ * - 카테고리별 점수 (category1-score, category2-score)
+ * - 총점 (total_score)
+ * - 게임 모드 (game_mode)
+ * - 평균 탭 수 (average_taps)
+ * - 총 탭 수 (total_taps)
+ * - 문장별 탭 빈도 (sentence_taps_summary)
+ *
+ * Checks real response and prevents false positive successes.
  */
 export async function sendGameLogToGoogleSheet(
   log: GameLogRecord,
@@ -106,14 +117,21 @@ export async function sendGameLogToGoogleSheet(
   const profile = getStudentProfile();
   const targetUrl = (customWebAppUrl || profile.gasWebAppUrl || DEFAULT_GOOGLE_SCRIPT_URL).trim();
 
-  if (!targetUrl) {
+  if (!targetUrl || !targetUrl.startsWith('http')) {
+    const errorMsg = '구글 앱스 스크립트 웹 앱 URL이 올바르게 설정되지 않았습니다.';
+    const failedRecord: GameLogRecord = {
+      ...log,
+      syncedToGoogleSheet: false,
+      syncError: errorMsg,
+    };
+    saveGameLog(failedRecord);
     return {
       success: false,
-      message: '구글 앱스 스크립트 웹 앱 URL이 설정되지 않았습니다.',
+      message: errorMsg,
     };
   }
 
-  // Construct sentence tap breakdowns
+  // Sentence tap breakdowns
   const sentenceFields: Record<string, any> = {};
   if (log.sentence_taps && log.sentence_taps.length > 0) {
     log.sentence_taps.forEach((st, idx) => {
@@ -124,6 +142,7 @@ export async function sendGameLogToGoogleSheet(
     });
   }
 
+  // 10 required items + additional mapping
   const payload = {
     timestamp: log.timestamp,
     name: log.name,
@@ -136,56 +155,111 @@ export async function sendGameLogToGoogleSheet(
     category2_score: log.category2_score,
     total_score: log.total_score,
     game_mode: log.game_mode,
-    // 각 문장별 탭 빈도 및 평균 필드 (User requested tap frequency per sentence & average)
-    total_taps: log.total_taps,
     average_taps: log.average_taps,
     avg_taps: log.average_taps,
+    total_taps: log.total_taps,
     sentence_taps_summary: log.sentence_taps_summary,
     sentence_taps: JSON.stringify(log.sentence_taps),
     ...sentenceFields,
   };
 
   try {
-    // Attempt fetch with mode: 'no-cors' so browser security headers don't block GAS redirects
-    await fetch(targetUrl, {
+    // Send as CORS simple request (text/plain avoids OPTIONS preflight which GAS rejects)
+    // redirect: 'follow' ensures browser follows 302 to script.googleusercontent.com
+    const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8',
       },
       body: JSON.stringify(payload),
-      mode: 'no-cors',
+      redirect: 'follow',
     });
 
-    const updatedRecord: GameLogRecord = {
-      ...log,
-      syncedToGoogleSheet: true,
-      syncError: undefined,
-    };
-    saveGameLog(updatedRecord);
+    const responseText = await response.text();
+    let resJson: any = null;
+    try {
+      resJson = JSON.parse(responseText);
+    } catch {
+      // Non-JSON response, inspect text
+    }
 
-    return {
-      success: true,
-      message: '각 문장별 탭 빈도와 평균이 구글 시트에 성공적으로 저장되었습니다!',
-    };
-  } catch (error) {
-    console.error('Google Sheet transmission failed:', error);
-    const errMessage = error instanceof Error ? error.message : '전송 중 네트워크 오류가 발생했습니다.';
+    if (resJson && resJson.status === 'success') {
+      const updatedRecord: GameLogRecord = {
+        ...log,
+        syncedToGoogleSheet: true,
+        syncError: undefined,
+      };
+      saveGameLog(updatedRecord);
+
+      return {
+        success: true,
+        message: resJson.message || '구글 스프레드시트에 성공적으로 기록되었습니다!',
+        row: resJson.row,
+      };
+    }
+
+    if (resJson && resJson.status === 'error') {
+      const errorMsg = resJson.message || 'Apps Script 처리 중 오류가 반환되었습니다.';
+      const failedRecord: GameLogRecord = {
+        ...log,
+        syncedToGoogleSheet: false,
+        syncError: errorMsg,
+      };
+      saveGameLog(failedRecord);
+
+      return {
+        success: false,
+        message: errorMsg,
+      };
+    }
+
+    // Response arrived but was not valid success JSON
+    let friendlyError = '구글 시트 저장 실패: Google Apps Script 응답이 올바르지 않습니다.';
+    if (responseText.includes('스크リプト関数が見つかりません') || responseText.includes('doPost')) {
+      friendlyError = 'Google Apps Script에 doPost 함수가 배포되지 않았습니다. Apps Script 에디터에 코드를 붙여넣고 [새 배포]를 진행해 주세요.';
+    } else if (responseText.includes('ServiceLogin') || responseText.includes('accounts.google.com')) {
+      friendlyError = 'Google Apps Script 웹 앱 권한 오류: 배포 시 액세스 권한을 [모든 사용자 (Anyone)]로 설정해야 합니다.';
+    }
+
     const failedRecord: GameLogRecord = {
       ...log,
       syncedToGoogleSheet: false,
-      syncError: errMessage,
+      syncError: friendlyError,
     };
     saveGameLog(failedRecord);
 
     return {
       success: false,
-      message: errMessage,
+      message: friendlyError,
+    };
+  } catch (error) {
+    console.error('Google Sheet POST request error:', error);
+    const rawError = error instanceof Error ? error.message : String(error);
+    
+    // Provide diagnostic guidance for typical CORS/GAS deployment issues
+    let userMsg = `구글 시트 저장 실패: Google Apps Script 웹 앱에 연결할 수 없습니다.`;
+    if (rawError.includes('Failed to fetch') || rawError.includes('NetworkError') || rawError.includes('Load failed')) {
+      userMsg = '구글 시트 저장 실패 (CORS / 권한 오류): Google Apps Script에서 [배포] → [새 배포]를 클릭하고 액세스 권한을 [모든 사용자 (Anyone)]로 설정했는지 확인해 주세요.';
+    } else {
+      userMsg = `구글 시트 저장 실패: ${rawError}`;
+    }
+
+    const failedRecord: GameLogRecord = {
+      ...log,
+      syncedToGoogleSheet: false,
+      syncError: userMsg,
+    };
+    saveGameLog(failedRecord);
+
+    return {
+      success: false,
+      message: userMsg,
     };
   }
 }
 
 /**
- * Test ping to verify Google Apps Script web app URL
+ * Test ping to verify Google Apps Script web app URL with real success verification
  */
 export async function testGoogleSheetConnection(
   webAppUrl: string
@@ -220,23 +294,59 @@ export async function testGoogleSheetConnection(
   };
 
   try {
-    await fetch(cleanUrl, {
+    const response = await fetch(cleanUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8',
       },
       body: JSON.stringify(testPayload),
-      mode: 'no-cors',
+      redirect: 'follow',
     });
 
-    return {
-      success: true,
-      message: '구글 스프레드시트로 탭 빈도 및 평균 테스트 데이터가 성공적으로 전송되었습니다!',
-    };
-  } catch (err) {
+    const responseText = await response.text();
+    let resJson: any = null;
+    try {
+      resJson = JSON.parse(responseText);
+    } catch {
+      // not JSON
+    }
+
+    if (resJson && resJson.status === 'success') {
+      return {
+        success: true,
+        message: 'Google Apps Script 및 구글 스프레드시트 연동이 성공적으로 확인되었습니다!',
+      };
+    }
+
+    if (resJson && resJson.status === 'error') {
+      return {
+        success: false,
+        message: `Apps Script 오류: ${resJson.message}`,
+      };
+    }
+
+    if (responseText.includes('스크リプト関数が見つかりません') || responseText.includes('doPost')) {
+      return {
+        success: false,
+        message: 'Google Apps Script에 doPost 함수가 배포되지 않았습니다. 코드를 복사하여 [새 배포]를 진행해 주세요.',
+      };
+    }
+
     return {
       success: false,
-      message: err instanceof Error ? err.message : '연결 테스트 실패',
+      message: 'Google Apps Script에서 유효한 성공 응답을 받지 못했습니다. 배포 설정을 확인해 주세요.',
+    };
+  } catch (err) {
+    const rawError = err instanceof Error ? err.message : String(err);
+    if (rawError.includes('Failed to fetch') || rawError.includes('NetworkError')) {
+      return {
+        success: false,
+        message: '연동 실패 (CORS / 권한 오류): Apps Script에서 [배포] → [새 배포] 시 액세스 권한이 [모든 사용자(Anyone)]로 설정되었는지 확인해 주세요.',
+      };
+    }
+    return {
+      success: false,
+      message: `연결 테스트 실패: ${rawError}`,
     };
   }
 }

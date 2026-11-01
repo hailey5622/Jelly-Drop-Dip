@@ -18,6 +18,7 @@ import {
   Send,
   ExternalLink,
   GraduationCap,
+  AlertCircle,
 } from 'lucide-react';
 import { GOOGLE_SPREADSHEET_URL } from '../data/googleAppsScriptCode';
 import { sendGameLogToGoogleSheet } from '../utils/googleSheetService';
@@ -47,6 +48,16 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   const [sendSuccess, setSendSuccess] = useState<boolean | null>(
     latestGameLog?.syncedToGoogleSheet ?? null
   );
+  const [errorMessage, setErrorMessage] = useState<string | null>(
+    latestGameLog?.syncError ?? null
+  );
+
+  React.useEffect(() => {
+    if (latestGameLog) {
+      setSendSuccess(latestGameLog.syncedToGoogleSheet);
+      setErrorMessage(latestGameLog.syncError ?? null);
+    }
+  }, [latestGameLog?.syncedToGoogleSheet, latestGameLog?.syncError]);
 
   const wrongResults = summary.results.filter((r) => !r.isCorrect);
   const correctResults = summary.results.filter((r) => r.isCorrect);
@@ -84,9 +95,15 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
       return;
     }
     setIsSending(true);
+    setErrorMessage(null);
     const res = await sendGameLogToGoogleSheet(latestGameLog, studentProfile.gasWebAppUrl);
     setIsSending(false);
     setSendSuccess(res.success);
+    if (!res.success) {
+      setErrorMessage(res.message);
+    } else {
+      setErrorMessage(null);
+    }
   };
 
   return (
@@ -182,10 +199,20 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
 
             {/* Sync Status & Action Bar */}
             <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100 text-[10px]">
-              {sendSuccess || latestGameLog.syncedToGoogleSheet ? (
+              {sendSuccess ? (
                 <div className="flex items-center gap-1 text-emerald-700 font-bold">
-                  <Check className="w-3 h-3 text-emerald-600" />
+                  <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <span>구글 시트 저장 완료!</span>
+                </div>
+              ) : isSending ? (
+                <div className="flex items-center gap-1 text-purple-700 font-bold animate-pulse">
+                  <Send className="w-3 h-3 text-purple-600 animate-spin shrink-0" />
+                  <span>시트 기록 전송 중...</span>
+                </div>
+              ) : errorMessage ? (
+                <div className="flex items-center gap-1 text-rose-700 font-bold">
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <span>저장 실패 (아래 확인)</span>
                 </div>
               ) : (
                 <div className="text-slate-500 font-medium">
@@ -194,14 +221,14 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
               )}
 
               <div className="flex items-center gap-1">
-                {(!sendSuccess && !latestGameLog.syncedToGoogleSheet) && (
+                {!sendSuccess && (
                   <button
                     onClick={handleManualSync}
                     disabled={isSending}
-                    className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 cursor-pointer"
+                    className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 cursor-pointer transition-colors"
                   >
                     <Send className="w-2.5 h-2.5" />
-                    <span>{isSending ? '전송 중...' : '시트로 전송'}</span>
+                    <span>{isSending ? '전송 중...' : '다시 전송'}</span>
                   </button>
                 )}
 
@@ -226,6 +253,29 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Error Detail Banner when failed (Requirement 5) */}
+            {!sendSuccess && errorMessage && (
+              <div className="mt-1.5 p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[10px] space-y-1">
+                <div className="flex items-center justify-between font-extrabold text-rose-900">
+                  <span className="flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 text-rose-600 shrink-0" />
+                    구글 시트 자동 기록 오류 안내
+                  </span>
+                  {onOpenGoogleSheetModal && (
+                    <button
+                      onClick={onOpenGoogleSheetModal}
+                      className="text-rose-700 underline text-[9.5px] font-bold cursor-pointer"
+                    >
+                      해결 방법 보기
+                    </button>
+                  )}
+                </div>
+                <p className="text-[9.5px] text-rose-700 leading-snug break-keep">
+                  {errorMessage}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </header>
