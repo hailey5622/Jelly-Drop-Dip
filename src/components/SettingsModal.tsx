@@ -19,6 +19,7 @@ import {
   isValidGoogleScriptUrl,
   testGoogleSheetConnection,
   getDefaultScriptUrl,
+  OFFICIAL_GOOGLE_SCRIPT_URL,
 } from '../utils/googleSheetService';
 import { saveStudentProfile } from '../utils/gameStorage';
 
@@ -37,9 +38,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onOpenNicknameModal,
   onProfileUpdated,
 }) => {
-  const [webAppUrlInput, setWebAppUrlInput] = useState(
-    studentProfile.gasWebAppUrl || getDefaultScriptUrl()
-  );
+  // If stored URL is an old deprecated URL, auto-initialize with official URL
+  const initialUrl = React.useMemo(() => {
+    const raw = studentProfile.gasWebAppUrl?.trim();
+    if (!raw || raw.includes('AKfycbyla') || raw.includes('AKfycbyf') || !isValidGoogleScriptUrl(raw)) {
+      return OFFICIAL_GOOGLE_SCRIPT_URL;
+    }
+    return raw;
+  }, [studentProfile.gasWebAppUrl]);
+
+  const [webAppUrlInput, setWebAppUrlInput] = useState(initialUrl);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
     success: boolean;
@@ -48,19 +56,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [copiedCode, setCopiedCode] = useState(false);
   const [showCode, setShowCode] = useState(false);
 
+  React.useEffect(() => {
+    setWebAppUrlInput(initialUrl);
+  }, [initialUrl]);
+
   if (!isOpen) return null;
 
   const handleSaveUrl = () => {
-    const trimmed = webAppUrlInput.trim();
+    const trimmed = webAppUrlInput.trim() || OFFICIAL_GOOGLE_SCRIPT_URL;
     const updated = saveStudentProfile({ gasWebAppUrl: trimmed });
     onProfileUpdated(updated);
     setTestResult(null);
   };
 
+  const handleResetDefaultUrl = () => {
+    setWebAppUrlInput(OFFICIAL_GOOGLE_SCRIPT_URL);
+    const updated = saveStudentProfile({ gasWebAppUrl: OFFICIAL_GOOGLE_SCRIPT_URL });
+    onProfileUpdated(updated);
+    setTestResult(null);
+  };
+
   const handleRunTest = async () => {
+    const target = webAppUrlInput.trim() || OFFICIAL_GOOGLE_SCRIPT_URL;
+    // Auto-save target before test
+    const updated = saveStudentProfile({ gasWebAppUrl: target });
+    onProfileUpdated(updated);
+
     setIsTesting(true);
     setTestResult(null);
-    const result = await testGoogleSheetConnection(webAppUrlInput.trim());
+    const result = await testGoogleSheetConnection(target);
     setIsTesting(false);
     setTestResult(result);
   };
@@ -187,6 +211,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shrink-0 cursor-pointer active:scale-95 transition-all"
                   >
                     저장
+                  </button>
+                </div>
+                <div className="flex justify-end mt-1">
+                  <button
+                    onClick={handleResetDefaultUrl}
+                    className="text-[10px] text-purple-600 hover:text-purple-800 underline font-semibold cursor-pointer"
+                  >
+                    기본 공식 URL로 초기화
                   </button>
                 </div>
               </div>

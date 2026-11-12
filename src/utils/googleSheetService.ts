@@ -1,8 +1,14 @@
 import { SheetGamePayload } from '../types';
-import { getStudentProfile } from './gameStorage';
+import { getStudentProfile, saveStudentProfile } from './gameStorage';
 
 // In-memory cache of successfully synced game IDs to prevent duplicate incrementing
 const syncedGameIds = new Set<string>();
+
+/**
+ * The official current Google Apps Script Web App executable URL
+ */
+export const OFFICIAL_GOOGLE_SCRIPT_URL =
+  'https://script.google.com/macros/s/AKfycbyVKZVBkWPmjjBkOlk-3huNEly9Ia2KhnLig1xAY2C3BDroPVuBXpDY6yeFuJhKhWpd/exec';
 
 /**
  * Default fallback URL from environment variables (.env.local or process)
@@ -11,8 +17,8 @@ export function getDefaultScriptUrl(): string {
   const envUrl =
     (import.meta.env.VITE_GOOGLE_SCRIPT_URL as string) ||
     (import.meta.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL as string) ||
-    'https://script.google.com/macros/s/AKfycbyVKZVBkWPmjjBkOlk-3huNEly9Ia2KhnLig1xAY2C3BDroPVuBXpDY6yeFuJhKhWpd/exec';
-  return envUrl.trim();
+    OFFICIAL_GOOGLE_SCRIPT_URL;
+  return envUrl.trim() || OFFICIAL_GOOGLE_SCRIPT_URL;
 }
 
 /**
@@ -30,6 +36,7 @@ export function isValidGoogleScriptUrl(url?: string | null): boolean {
 /**
  * Resolves the effective Google Apps Script Web App URL to use.
  * Checks custom URL first, then student profile in localStorage, then env variables.
+ * Automatically purges deprecated old URLs from earlier versions (e.g. AKfycbyla...).
  */
 export function getEffectiveWebAppUrl(customUrl?: string | null): string {
   if (customUrl && isValidGoogleScriptUrl(customUrl)) {
@@ -37,8 +44,21 @@ export function getEffectiveWebAppUrl(customUrl?: string | null): string {
   }
 
   const profile = getStudentProfile();
-  if (profile.gasWebAppUrl && isValidGoogleScriptUrl(profile.gasWebAppUrl)) {
-    return profile.gasWebAppUrl.trim();
+  if (profile.gasWebAppUrl) {
+    const trimmed = profile.gasWebAppUrl.trim();
+    // If stored URL is an old deprecated URL from earlier tests, auto-migrate to the official new URL
+    if (
+      trimmed.includes('AKfycbyla9vWSjAlWlB9diqnTYJ-RPrkEZC4aZBlcvk4SqXsO86EoVSkcGKxudgT5U8LPLv9') ||
+      trimmed.includes('AKfycbyfH8ExlXGo') ||
+      trimmed.includes('googleusercontent.com') ||
+      trimmed.includes('/echo') ||
+      !isValidGoogleScriptUrl(trimmed)
+    ) {
+      console.warn('⚠️ [GoogleSheet] 로컬 저장소에 남아있던 구버전 Apps Script URL을 최신 공식 URL로 자동 마이그레이션합니다.');
+      saveStudentProfile({ gasWebAppUrl: OFFICIAL_GOOGLE_SCRIPT_URL });
+      return OFFICIAL_GOOGLE_SCRIPT_URL;
+    }
+    return trimmed;
   }
 
   return getDefaultScriptUrl();
@@ -58,6 +78,7 @@ export async function sendGameRecordToSheet(
 ): Promise<{ success: boolean; message: string; row?: number; data?: any }> {
   // Prevent duplicate transmission of the same completed game session
   if (record.game_id && syncedGameIds.has(record.game_id)) {
+    console.log('ℹ️ [GoogleSheet] 이미 전송 완료된 게임 ID:', record.game_id);
     return {
       success: true,
       message: '이미 Google Sheets에 전송이 완료된 게임 기록입니다.',
@@ -98,12 +119,16 @@ export async function sendGameRecordToSheet(
     is_test: false,
   };
 
-  console.log('📡 [GoogleSheet] GameLogs 전송 시작:', payload);
+  console.log('📡 [GoogleSheet] GameLogs 전송 시작! 대상 URL:', targetUrl);
+  console.log('📡 [GoogleSheet] 전송 데이터(Payload):', payload);
 
   try {
     // Send as CORS simple request (text/plain avoids OPTIONS preflight which GAS rejects)
+    // credentials: 'omit' ensures compliance with wildcard Access-Control-Allow-Origin
     const response = await fetch(targetUrl, {
       method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8',
       },
@@ -119,7 +144,8 @@ export async function sendGameRecordToSheet(
       // Non-JSON response, inspect text below
     }
 
-    console.log('📥 [GoogleSheet] 서버 응답 상태:', response.status, responseText);
+    console.log('📥 [GoogleSheet] HTTP 응답 상태:', response.status, response.statusText);
+    console.log('📥 [GoogleSheet] 서버 수신 본문(Text):', responseText);
 
     const isSuccess =
       resJson &&
@@ -132,6 +158,7 @@ export async function sendGameRecordToSheet(
       if (record.game_id) {
         syncedGameIds.add(record.game_id);
       }
+      console.log('✅ [GoogleSheet] GameLogs 저장 성공! 결과:', resJson);
       return {
         success: true,
         message: `Google Sheets GameLogs에 기록이 ${resJson.action === 'updated' ? '갱신' : '저장'}되었습니다.`,
@@ -141,6 +168,7 @@ export async function sendGameRecordToSheet(
     }
 
     if (resJson && resJson.status === 'error') {
+      console.error('❌ [GoogleSheet] Apps Script 에러 반환:', resJson.message);
       return {
         success: false,
         message: `Apps Script 오류: ${resJson.message}`,
@@ -152,7 +180,7 @@ export async function sendGameRecordToSheet(
     if (responseText.includes('ServiceLogin') || responseText.includes('accounts.google.com')) {
       friendlyError =
         '권한 오류: Google Apps Script [새 배포] 시 "액세스 권한이 있는 사용자"를 [모든 사용자(Anyone)]로 설정해야 합니다.';
-    } else if (responseText.includes('doPost')) {
+    } else if (responseText.includes('doPost') || responseText.includes('스크リプト関数が見つかりません')) {
       friendlyError = 'Apps Script 오류: 웹 앱에 doPost 함수가 배포되지 않았습니다. 새 버전을 배포해 주세요.';
     }
 
@@ -161,7 +189,7 @@ export async function sendGameRecordToSheet(
       message: friendlyError,
     };
   } catch (error) {
-    console.error('❌ [GoogleSheet] 전송 실패:', error);
+    console.error('❌ [GoogleSheet] 전송 네트워크 오류:', error);
     const rawError = error instanceof Error ? error.message : String(error);
     let msg = `Google Sheets 연결 실패: ${rawError}`;
     if (rawError.includes('Failed to fetch') || rawError.includes('NetworkError')) {
@@ -183,6 +211,8 @@ export async function testGoogleSheetConnection(
   customUrl?: string
 ): Promise<{ success: boolean; message: string; row?: number }> {
   const targetUrl = getEffectiveWebAppUrl(customUrl);
+
+  console.log('🧪 [GoogleSheet Test] 연결 테스트 대상 URL:', targetUrl);
 
   if (!targetUrl) {
     return {
@@ -209,11 +239,11 @@ export async function testGoogleSheetConnection(
     score: 10,
   };
 
-  console.log('🧪 [GoogleSheet Test] 연결 테스트 시작:', targetUrl);
-
   try {
     const response = await fetch(targetUrl, {
       method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8',
       },
@@ -229,7 +259,7 @@ export async function testGoogleSheetConnection(
       // not JSON
     }
 
-    console.log('🧪 [GoogleSheet Test] 응답:', response.status, responseText);
+    console.log('🧪 [GoogleSheet Test] 응답 수신 상태:', response.status, responseText);
 
     if (resJson && resJson.status === 'success') {
       return {
@@ -251,6 +281,13 @@ export async function testGoogleSheetConnection(
         success: false,
         message:
           '권한 오류: Apps Script [배포] → [새 배포] 시 "액세스 권한이 있는 사용자"를 [모든 사용자(Anyone)]로 설정해야 로그인 없이 기록할 수 있습니다.',
+      };
+    }
+
+    if (responseText.includes('doPost') || responseText.includes('스크リプト関数が見つかりません')) {
+      return {
+        success: false,
+        message: 'Apps Script 오류: 배포된 웹 앱에 doPost 함수가 없습니다. 코드를 저장하고 [새 버전]을 배포해 주세요.',
       };
     }
 
